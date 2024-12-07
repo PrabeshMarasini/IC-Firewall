@@ -11,6 +11,37 @@
 #include <string.h>
 #include <netdb.h>
 
+void list_port_status()
+{
+    FILE *fp;
+    char buffer[4096];
+    
+    printf("\nActive Port Status:\n");
+    printf("===================\n");
+
+    fp = popen("ss -tuap", "r");
+    if (fp == NULL) {
+        perror("Failed to run ss command");
+        return;
+    }
+
+    printf("%-10s %-10s %-25s %-25s %-20s %-30s\n", 
+           "Protocol", "State", "Local Address", "Peer Address", "Process", "Details");
+    printf("-------------------------------------------------------------------------------------\n");
+
+    fgets(buffer, sizeof(buffer), fp);
+
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        buffer[strcspn(buffer, "\n")] = 0;
+
+        if (strlen(buffer) > 0) {
+            printf("%s\n", buffer);
+        }
+    }
+
+    pclose(fp);
+}
+
 void list_interfaces()
 {
     struct ifaddrs *ifaddr, *ifa;
@@ -89,6 +120,7 @@ int main()
     char *dev_name = NULL;
 
     list_interfaces();
+    list_port_status();
 
     if (pcap_findalldevs(&all_devs, errbuf) == -1)
     {
