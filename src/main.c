@@ -9,7 +9,8 @@
 #include <netinet/in.h>
 #include <linux/if_packet.h>
 #include <string.h>
-#include <netdb.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 void list_port_status()
 {
@@ -84,12 +85,10 @@ void list_interfaces()
     freeifaddrs(ifaddr);
 }
 
-void packet_handler(unsigned char *args, const struct pcap_pkthdr *header, const unsigned char *packet)
-{
+void packet_handler(unsigned char *args, const struct pcap_pkthdr *header, const unsigned char *packet) {
     struct ether_header *ether_header = (struct ether_header *)packet;
 
-    if (ntohs(ether_header->ether_type) == ETHERTYPE_IP)
-    {
+    if (ntohs(ether_header->ether_type) == ETHERTYPE_IP) {
         struct ip *ip_header = (struct ip *)(packet + sizeof(struct ether_header));
         char src_ip[INET_ADDRSTRLEN], dest_ip[INET_ADDRSTRLEN];
 
@@ -98,17 +97,31 @@ void packet_handler(unsigned char *args, const struct pcap_pkthdr *header, const
 
         printf("%s Packet:\n", (char *)args);
         printf("Source MAC: ");
-        for (int i = 0; i < ETH_ALEN; i++)
-        {
+        for (int i = 0; i < ETH_ALEN; i++) {
             printf("%02x%s", ether_header->ether_shost[i], (i < ETH_ALEN - 1) ? ":" : "");
         }
         printf("\nDestination MAC: ");
-        for (int i = 0; i < ETH_ALEN; i++)
-        {
+        for (int i = 0; i < ETH_ALEN; i++) {
             printf("%02x%s", ether_header->ether_dhost[i], (i < ETH_ALEN - 1) ? ":" : "");
         }
-        printf("\nSource IP: %s\nDestination IP: %s\nPacket Length: %d bytes\n--------------------------------------\n",
-               src_ip, dest_ip, header->len);
+
+        printf("\nSource IP: %s\nDestination IP: %s\n", src_ip, dest_ip);
+
+        if (ip_header->ip_p == IPPROTO_TCP) {
+            struct tcphdr *tcp_header = (struct tcphdr *)(packet + sizeof(struct ether_header) + (ip_header->ip_hl * 4));
+            printf("Protocol: TCP\n");
+            printf("Source Port: %d\n", ntohs(tcp_header->source));
+            printf("Destination Port: %d\n", ntohs(tcp_header->dest));
+        } else if (ip_header->ip_p == IPPROTO_UDP) {
+            struct udphdr *udp_header = (struct udphdr *)(packet + sizeof(struct ether_header) + (ip_header->ip_hl * 4));
+            printf("Protocol: UDP\n");
+            printf("Source Port: %d\n", ntohs(udp_header->source));
+            printf("Destination Port: %d\n", ntohs(udp_header->dest));
+        } else {
+            printf("Protocol: Other (not TCP/UDP)\n");
+        }
+
+        printf("Packet Length: %d bytes\n--------------------------------------\n", header->len);
     }
 }
 
